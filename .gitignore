@@ -1,7 +1,7 @@
 # Dependencies (monorepo)
 node_modules
 **/node_modules
-
+**/data
 dist
 **/dist
 .turbo
@@ -22,3 +22,5 @@ docs/.DS_Store
 
 # Server local data
 packages/server/data
+
+

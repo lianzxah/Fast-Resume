@@ -175,7 +175,3 @@ Fast Resume 是采用 [PolyForm Noncommercial License 1.0.0](LICENSE) 的**源�
 - 商业授权邮箱：[18834161127@163.com](mailto:18834161127@163.com)
 
 ---
-
-<p align="center">
-  Made with ✦ by <a href="https://github.com/lianzxah">lianzxah</a>
-</p>
