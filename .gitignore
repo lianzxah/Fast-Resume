@@ -1,0 +1,24 @@
+# Dependencies (monorepo)
+node_modules
+**/node_modules
+
+dist
+**/dist
+.turbo
+**/.turbo
+*.log
+.DS_Store
+.env
+.env.local
+coverage
+
+# Tooling / IDE
+.qoder
+.itorator
+.issues
+.plan
+.pnpm-store/*
+docs/.DS_Store
+
+# Server local data
+packages/server/data
