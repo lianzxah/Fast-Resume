@@ -25,6 +25,7 @@ import {
 interface EditorActions {
   // 文档操作
   setDocument: (doc: ResumeDocument) => void;
+  restoreDocument: (doc: ResumeDocument) => void;
   updateDocumentTitle: (title: string) => void;
   applyTemplate: (template: ResumeTemplate) => void;
   applyDocumentTransform: (
@@ -253,6 +254,29 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       activePageIndex: 0,
       selection: { selectedIds: [], hoveredId: null },
       documentRevision: 0,
+    }),
+  restoreDocument: (doc) =>
+    set((state) => {
+      const restored = cloneDoc(doc);
+      const nextHistory = [
+        ...state.history.slice(0, state.historyIndex + 1),
+        {
+          id: generateId('hist'),
+          timestamp: Date.now(),
+          description: '从 JSON 备份恢复',
+          document: cloneDoc(restored),
+        },
+      ].slice(-MAX_HISTORY);
+      return {
+        ...pushPast(state),
+        document: restored,
+        activePageIndex: 0,
+        selection: { selectedIds: [], hoveredId: null },
+        history: nextHistory,
+        historyIndex: nextHistory.length - 1,
+        documentRevision: state.documentRevision + 1,
+        isDirty: true,
+      };
     }),
   updateDocumentTitle: (title) =>
     set((state) => ({

@@ -7,3 +7,4 @@ export * from './ai-model-presets';
 export * from './drawing-catalog';
 export * from './links';
 export * from './business-icons';
+export * from './resume-backup';

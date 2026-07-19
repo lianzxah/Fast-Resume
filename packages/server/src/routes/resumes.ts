@@ -4,7 +4,7 @@ import type {
   ResumeVersionDTO,
   ResumeDetailDTO,
 } from '@resume-editor/shared';
-import { generateId } from '@resume-editor/shared';
+import { generateId, validateResumeDocument } from '@resume-editor/shared';
 import { db, type ResumeRow, type VersionRow } from '../db';
 import { authMiddleware, type AuthEnv } from '../middleware/auth';
 import {
@@ -61,6 +61,14 @@ function insertVersion(resumeId: string, version: number, message?: string): voi
   );
 }
 
+function summarizeDocumentIssues(issues: Array<{ path: string; message: string }>): string {
+  const details = issues
+    .slice(0, 3)
+    .map((issue) => `${issue.path}: ${issue.message}`)
+    .join('；');
+  return issues.length > 3 ? `${details}；另有 ${issues.length - 3} 处错误` : details;
+}
+
 // ============================================================
 // GET / - 当前用户简历列表 (最近编辑在前)
 // ============================================================
@@ -82,6 +90,13 @@ resumeRoutes.post('/', async (c) => {
   if (!document) {
     return c.json({ success: false, error: '缺少文档内容' }, 400);
   }
+  const validation = validateResumeDocument(document);
+  if (!validation.success) {
+    return c.json(
+      { success: false, error: `文档结构无效：${summarizeDocumentIssues(validation.issues)}` },
+      400
+    );
+  }
 
   const now = new Date().toISOString();
   const row: ResumeRow = {
@@ -97,8 +112,8 @@ resumeRoutes.post('/', async (c) => {
     'INSERT INTO resumes (id, user_id, title, tags, current_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(row.id, row.user_id, row.title, row.tags, row.current_version, row.created_at, row.updated_at);
 
-  writeCurrentDocument(row.id, document);
-  writeVersionDocument(row.id, 1, document);
+  writeCurrentDocument(row.id, validation.document);
+  writeVersionDocument(row.id, 1, validation.document);
   insertVersion(row.id, 1, '创建');
   if (thumbnail) {
     writeCurrentThumbnail(row.id, thumbnail);
@@ -131,6 +146,13 @@ resumeRoutes.put('/:id', async (c) => {
 
   const { title, document, thumbnail, createVersion, message } = await c.req.json();
   if (!document) return c.json({ success: false, error: '缺少文档内容' }, 400);
+  const validation = validateResumeDocument(document);
+  if (!validation.success) {
+    return c.json(
+      { success: false, error: `文档结构无效：${summarizeDocumentIssues(validation.issues)}` },
+      400
+    );
+  }
 
   const now = new Date().toISOString();
   let version = row.current_version;
@@ -143,11 +165,11 @@ resumeRoutes.put('/:id', async (c) => {
     row.id
   );
 
-  writeCurrentDocument(row.id, document);
+  writeCurrentDocument(row.id, validation.document);
   if (thumbnail) writeCurrentThumbnail(row.id, thumbnail);
 
   if (createVersion) {
-    writeVersionDocument(row.id, version, document);
+    writeVersionDocument(row.id, version, validation.document);
     if (thumbnail) writeVersionThumbnail(row.id, version, thumbnail);
     insertVersion(row.id, version, message);
   }

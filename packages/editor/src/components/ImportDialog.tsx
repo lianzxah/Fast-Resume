@@ -15,21 +15,30 @@ import {
   GraduationCap,
   Wrench,
   FolderOpen,
+  FileJson,
 } from 'lucide-react';
 import { useEditorStore } from '@/store';
-import type { ResumeData } from '@resume-editor/shared';
-import { resumeDataToPages } from '@resume-editor/shared';
+import type { ParsedResumeBackup, ResumeData } from '@resume-editor/shared';
+import {
+  MAX_RESUME_BACKUP_FILE_SIZE,
+  countResumeDocumentElements,
+  parseResumeBackup,
+  resumeDataToPages,
+} from '@resume-editor/shared';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 interface ImportDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-type ImportStep = 'upload' | 'parsing' | 'preview' | 'error';
+type ImportStep = 'upload' | 'parsing' | 'preview' | 'backup-preview' | 'error';
 
 export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => {
   const [step, setStep] = useState<ImportStep>('upload');
   const [parsedData, setParsedData] = useState<ResumeData | null>(null);
+  const [parsedBackup, setParsedBackup] = useState<ParsedResumeBackup | null>(null);
+  const [confirmBackupOpen, setConfirmBackupOpen] = useState(false);
   const [error, setError] = useState('');
   const [markdownInput, setMarkdownInput] = useState('');
   const [dragOver, setDragOver] = useState(false);
@@ -38,6 +47,8 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
   const resetState = useCallback(() => {
     setStep('upload');
     setParsedData(null);
+    setParsedBackup(null);
+    setConfirmBackupOpen(false);
     setError('');
     setMarkdownInput('');
     setDragOver(false);
@@ -54,6 +65,14 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
   const parseFile = useCallback(async (file: File) => {
     setStep('parsing');
     setError('');
+    setParsedData(null);
+    setParsedBackup(null);
+
+    if (file.size > MAX_RESUME_BACKUP_FILE_SIZE) {
+      setError('文件不能超过 10MB');
+      setStep('error');
+      return;
+    }
 
     const formData = new FormData();
     formData.append('file', file);
@@ -63,6 +82,17 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
 
     if (ext === 'pdf') endpoint += 'pdf';
     else if (ext === 'docx' || ext === 'doc') endpoint += 'word';
+    else if (ext === 'json') {
+      try {
+        const backup = parseResumeBackup(await file.text());
+        setParsedBackup(backup);
+        setStep('backup-preview');
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'JSON 备份解析失败');
+        setStep('error');
+      }
+      return;
+    }
     else if (ext === 'md' || ext === 'markdown') {
       // Markdown 读取文本内容直接发送
       const text = await file.text();
@@ -128,6 +158,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) parseFile(file);
+      e.target.value = '';
     },
     [parseFile]
   );
@@ -156,6 +187,12 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
     handleClose();
   }, [parsedData, handleClose]);
 
+  const handleConfirmBackupRestore = useCallback(() => {
+    if (!parsedBackup) return;
+    useEditorStore.getState().restoreDocument(parsedBackup.document);
+    handleClose();
+  }, [parsedBackup, handleClose]);
+
   if (!open) return null;
 
   return (
@@ -180,7 +217,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
           {/* 头部 */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-border">
             <div className="flex items-center gap-2">
-              {step === 'preview' && (
+              {(step === 'preview' || step === 'backup-preview') && (
                 <button onClick={() => setStep('upload')} className="p-1 rounded hover:bg-accent">
                   <ArrowLeft className="w-4 h-4" />
                 </button>
@@ -223,6 +260,14 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
                 <PreviewStep key="preview" data={parsedData} onConfirm={handleConfirmImport} />
               )}
 
+              {step === 'backup-preview' && parsedBackup && (
+                <BackupPreviewStep
+                  key="backup-preview"
+                  backup={parsedBackup}
+                  onRestore={() => setConfirmBackupOpen(true)}
+                />
+              )}
+
               {step === 'error' && (
                 <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center py-8 gap-3">
                   <AlertCircle className="w-8 h-8 text-destructive" />
@@ -238,6 +283,19 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
             </AnimatePresence>
           </div>
         </motion.div>
+
+        <ConfirmDialog
+          open={confirmBackupOpen}
+          title="恢复 JSON 备份？"
+          description={
+            parsedBackup
+              ? `当前简历将被“${parsedBackup.document.metadata.title || '未命名简历'}”覆盖。恢复后会自动保存，且仍可立即撤销本次操作。`
+              : ''
+          }
+          confirmLabel="确认恢复"
+          onConfirm={handleConfirmBackupRestore}
+          onClose={() => setConfirmBackupOpen(false)}
+        />
       </motion.div>
     </AnimatePresence>
   );
@@ -259,7 +317,7 @@ const UploadStep: React.FC<{
   onBrowse: () => void;
 }> = ({ dragOver, markdownInput, fileInputRef, onDragOver, onDragLeave, onDrop, onFileSelect, onMarkdownChange, onMarkdownSubmit, onBrowse }) => (
   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
-    <p className="text-xs text-muted-foreground">支持格式：PDF、Markdown (.md)、Word (.docx)</p>
+    <p className="text-xs text-muted-foreground">支持格式：JSON 备份、PDF、Markdown (.md)、Word (.docx)</p>
 
     {/* 拖拽上传区 */}
     <div
@@ -284,10 +342,13 @@ const UploadStep: React.FC<{
         <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted rounded px-2 py-0.5">
           <FileType className="w-3 h-3" /> .docx
         </span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted rounded px-2 py-0.5">
+          <FileJson className="w-3 h-3" /> .json
+        </span>
       </div>
     </div>
 
-    <input ref={fileInputRef as React.RefObject<HTMLInputElement>} type="file" accept=".pdf,.md,.markdown,.docx,.doc" className="hidden" onChange={onFileSelect} />
+    <input ref={fileInputRef as React.RefObject<HTMLInputElement>} type="file" accept=".json,.pdf,.md,.markdown,.docx,.doc" className="hidden" onChange={onFileSelect} />
 
     {/* 分隔线 */}
     <div className="flex items-center gap-3">
@@ -395,6 +456,82 @@ const PreviewStep: React.FC<{ data: ResumeData; onConfirm: () => void }> = ({ da
     </button>
   </motion.div>
 );
+
+// ============================================================
+// JSON 备份预览
+// ============================================================
+const BackupPreviewStep: React.FC<{
+  backup: ParsedResumeBackup;
+  onRestore: () => void;
+}> = ({ backup, onRestore }) => {
+  const { document, exportedAt, source, schemaVersion } = backup;
+  const elementCount = countResumeDocumentElements(document);
+  const exportedAtLabel = exportedAt
+    ? new Date(exportedAt).toLocaleString('zh-CN', { hour12: false })
+    : '旧版备份未记录导出时间';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      className="space-y-4"
+    >
+      <div className="flex items-center gap-2 text-sm font-medium text-green-600">
+        <CheckCircle2 className="w-4 h-4" />
+        JSON 备份校验通过
+      </div>
+
+      <div className="rounded-lg border border-border bg-muted/30 p-4">
+        <div className="flex items-start gap-3">
+          <span className="rounded-lg bg-primary/10 p-2 text-primary">
+            <FileJson className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">
+              {document.metadata.title || '未命名简历'}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{exportedAtLabel}</p>
+          </div>
+        </div>
+
+        <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-md bg-background px-2 py-2">
+            <dt className="text-[10px] text-muted-foreground">页面</dt>
+            <dd className="mt-0.5 text-sm font-semibold">{document.pages.length}</dd>
+          </div>
+          <div className="rounded-md bg-background px-2 py-2">
+            <dt className="text-[10px] text-muted-foreground">画布元素</dt>
+            <dd className="mt-0.5 text-sm font-semibold">{elementCount}</dd>
+          </div>
+          <div className="rounded-md bg-background px-2 py-2">
+            <dt className="text-[10px] text-muted-foreground">备份格式</dt>
+            <dd className="mt-0.5 text-sm font-semibold">
+              {source === 'legacy' ? '旧版' : `v${schemaVersion}`}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      {source === 'legacy' && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+          这是旧版裸 JSON 备份。项目已完成兼容校验，恢复后再次导出会自动升级为带版本信息的新格式。
+        </div>
+      )}
+
+      <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs leading-5 text-orange-800">
+        恢复会完整替换当前简历的页面、元素、样式和结构化数据，不会重新排版。
+      </div>
+
+      <button
+        className="w-full rounded-md bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        onClick={onRestore}
+      >
+        恢复此 JSON 备份
+      </button>
+    </motion.div>
+  );
+};
 
 /** 预览段落容器 */
 const SectionPreview: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = ({ icon, title, children }) => (

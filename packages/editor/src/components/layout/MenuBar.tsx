@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { useEditorStore } from '@/store';
 import { ImportDialog } from '@/components/ImportDialog';
-import { generateElementId } from '@resume-editor/shared';
+import { generateElementId, serializeResumeBackup } from '@resume-editor/shared';
 import { exportPageToPNG, exportDocumentToPDF } from '@resume-editor/canvas-engine';
 import { triggerManualSave, triggerOpenVersions } from '@/lib/save-bus';
 
@@ -356,15 +356,19 @@ export const MenuBar: React.FC = () => {
 
   /** 导出 JSON 备份 (本地下载) */
   function exportJson() {
-    const json = JSON.stringify(doc, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), {
-      href: url,
-      download: `${doc.metadata.title || '简历'}.json`,
-    });
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const json = serializeResumeBackup(doc);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), {
+        href: url,
+        download: `${doc.metadata.title || '简历'}.json`,
+      });
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'JSON 备份导出失败');
+    }
   }
 
   async function exportPNG() {

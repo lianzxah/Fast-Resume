@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { createResumeBackup } from '@resume-editor/shared';
 
 export const exportRoutes = new Hono();
 
@@ -51,11 +52,12 @@ exportRoutes.post('/json', async (c) => {
     return c.json({ success: false, error: '缺少文档数据' }, 400);
   }
 
-  return c.json({
-    success: true,
-    data: {
-      document: doc,
-      exportedAt: new Date().toISOString(),
-    },
-  });
+  try {
+    return c.json({ success: true, data: createResumeBackup(doc) });
+  } catch (error) {
+    return c.json(
+      { success: false, error: error instanceof Error ? error.message : '文档结构无效' },
+      400
+    );
+  }
 });
