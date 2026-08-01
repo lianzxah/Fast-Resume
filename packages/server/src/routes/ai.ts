@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type {
   AiAppliedChange,
+  AiApplyProposalRequest,
   AiEditorContext,
   AiEvent,
   AiStreamFrame,
@@ -11,6 +12,7 @@ import type {
 } from '@resume-editor/shared';
 import {
   applyAiEditProposal as computeAiEditProposal,
+  applyAiTextHeightAdjustments,
   createDocumentFingerprint,
   isSupportedAiModel,
 } from '@resume-editor/shared';
@@ -422,12 +424,15 @@ aiRoutes.post('/sessions/:sessionId/proposals/:proposalId/apply', async (c) => {
   const proposal = getAiProposal(session.id, c.req.param('proposalId'));
   if (!proposal) return c.json({ success: false, error: 'AI 提案不存在' }, 404);
 
-  const body = (await c.req.json()) as Partial<AiAppliedChange>;
+  const body = (await c.req.json()) as Partial<AiApplyProposalRequest>;
   if (!body.attemptId || typeof body.attemptId !== 'string') {
     return c.json({ success: false, error: '缺少应用尝试 token' }, 400);
   }
   if (!body.beforeDocument || !body.afterDocument || !body.beforeHash || !body.afterHash) {
     return c.json({ success: false, error: '缺少 AI 修改 checkpoint' }, 400);
+  }
+  if (!Array.isArray(body.textHeightAdjustments)) {
+    return c.json({ success: false, error: '缺少 AI 文本高度调整结果' }, 400);
   }
   if (
     createDocumentFingerprint(body.beforeDocument) !== body.beforeHash ||
@@ -437,7 +442,12 @@ aiRoutes.post('/sessions/:sessionId/proposals/:proposalId/apply', async (c) => {
   }
   try {
     const computed = computeAiEditProposal(proposal.proposal, body.beforeDocument);
-    if (createDocumentFingerprint(computed.document) !== body.afterHash) {
+    const withDerivedLayout = applyAiTextHeightAdjustments(
+      proposal.proposal,
+      computed.document,
+      body.textHeightAdjustments
+    );
+    if (createDocumentFingerprint(withDerivedLayout) !== body.afterHash) {
       return c.json({ success: false, error: 'AI 修改结果与提案不一致' }, 409);
     }
   } catch (error: any) {

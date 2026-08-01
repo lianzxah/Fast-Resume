@@ -1,6 +1,8 @@
 import { useEditorStore } from '@/store';
+import { measureTextElementHeightAdjustments } from '@resume-editor/canvas-engine';
 import {
   applyAiEditProposal as applySharedAiEditProposal,
+  applyAiTextHeightAdjustments,
   buildAiTextIndex,
   canAutoApplyAiProposal,
   createDocumentFingerprint,
@@ -10,6 +12,7 @@ import {
   type AiAppliedChange,
   type AiEditorContext,
   type AiEditProposal,
+  type AiTextHeightAdjustment,
   type ResumeDocument,
   type ResumeElement,
   type ViewCommand,
@@ -81,6 +84,7 @@ export interface PreparedAiEditProposal {
   commandTypes: string[];
   beforeDocument: ResumeDocument;
   afterDocument: ResumeDocument;
+  textHeightAdjustments: AiTextHeightAdjustment[];
 }
 
 export function prepareAiEditProposal(proposal: AiEditProposal): PreparedAiEditProposal {
@@ -88,7 +92,19 @@ export function prepareAiEditProposal(proposal: AiEditProposal): PreparedAiEditP
   const beforeDocument = JSON.parse(JSON.stringify(store.document)) as ResumeDocument;
   const beforeHash = createDocumentFingerprint(beforeDocument);
   const result = applySharedAiEditProposal(proposal, beforeDocument);
-  const afterHash = createDocumentFingerprint(result.document);
+  const textReplaceIds = proposal.commands
+    .filter((command) => command.type === 'text.replace')
+    .map((command) => command.elementId);
+  const textHeightAdjustments = measureTextElementHeightAdjustments(
+    result.document,
+    textReplaceIds
+  );
+  const afterDocument = applyAiTextHeightAdjustments(
+    proposal,
+    result.document,
+    textHeightAdjustments
+  );
+  const afterHash = createDocumentFingerprint(afterDocument);
 
   return {
     changedElementIds: result.changedElementIds,
@@ -96,7 +112,8 @@ export function prepareAiEditProposal(proposal: AiEditProposal): PreparedAiEditP
     afterHash,
     commandTypes: proposal.commands.map((command) => command.type),
     beforeDocument,
-    afterDocument: result.document,
+    afterDocument,
+    textHeightAdjustments,
   };
 }
 

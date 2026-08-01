@@ -1,12 +1,12 @@
 import type {
   AiEditorContext,
   AiAppliedChange,
+  AiApplyProposalRequest,
   AiApplyResponse,
   AiEditProposal,
   AiModelConfigResponse,
   AiModelProfile,
   AiModelProfileInput,
-  AiModelRuntimeSnapshot,
   AiStreamFrame,
   AiProposalStatus,
   AiTurnResponse,
@@ -261,22 +261,7 @@ export const aiApi = {
     onFrame: (frame: AiStreamFrame) => void | Promise<void>,
     signal?: AbortSignal
   ) => streamAiRequest(`/ai/sessions/${sessionId}/messages/stream`, payload, onFrame, signal),
-  applyProposal: (
-    sessionId: string,
-    proposalId: string,
-    payload: {
-      attemptId: string;
-      resumeId: string;
-      commandTypes: string[];
-      changedElementIds: string[];
-      beforeHash?: string;
-      afterHash?: string;
-      title?: string;
-      beforeDocument?: ResumeDocument;
-      afterDocument?: ResumeDocument;
-      model?: AiModelRuntimeSnapshot;
-    }
-  ) =>
+  applyProposal: (sessionId: string, proposalId: string, payload: AiApplyProposalRequest) =>
     request<AiApplyResponse>(`/ai/sessions/${sessionId}/proposals/${proposalId}/apply`, {
       method: 'POST',
       body: JSON.stringify(payload),

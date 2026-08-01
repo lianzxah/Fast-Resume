@@ -3,6 +3,7 @@ import type {
   AiElementSnapshot,
   AiEditProposal,
   AiRevertPreview,
+  AiTextHeightAdjustment,
   AiTextIndexItem,
   ElementLayoutPatch,
   JsonPatchOperation,
@@ -35,6 +36,7 @@ const MAX_TEXT_LENGTH_RATIO = 3;
 const MAX_TEXT_LENGTH_ABSOLUTE = 5000;
 const MAX_LOW_RISK_DELETES = 3;
 const MAX_RESUME_DATA_PATCH_OPS = 25;
+const MAX_AI_TEXT_HEIGHT_PX = 100_000;
 const SAFE_RESUME_DATA_ROOTS = new Set([
   'personalInfo',
   'experience',
@@ -213,6 +215,24 @@ function pageWidthPx(page: ResumePage, doc: ResumeDocument): number {
 function pageHeightPx(page: ResumePage, doc: ResumeDocument): number {
   const config = { ...doc.pageConfig, ...page.config };
   return (config.height * config.dpi) / 25.4;
+}
+
+function maxAiTextHeightPx(
+  element: Extract<ResumeElement, { type: 'text' }>,
+  page: ResumePage,
+  doc: ResumeDocument
+): number {
+  const lineHeightPx = element.fontSize * (element.lineHeight || 1.2);
+  if (!Number.isFinite(lineHeightPx) || lineHeightPx <= 0) return 0;
+
+  const displayText =
+    element.segments && element.segments.length > 0
+      ? element.segments.map((segment) => segment.text).join('')
+      : element.content;
+  // 当前布局器每个源字符至多产生一个新排版行；额外一行覆盖空文本和末尾换行。
+  const contentBound = Math.max(1, Array.from(displayText).length + 1) * lineHeightPx;
+  const pageSafetyBound = pageHeightPx(page, doc) * 2;
+  return Math.min(MAX_AI_TEXT_HEIGHT_PX, Math.max(pageSafetyBound, contentBound));
 }
 
 export function findElementLocation(
@@ -627,6 +647,68 @@ export function applyAiEditProposal(proposal: AiEditProposal, doc: ResumeDocumen
   return {
     document: next,
     changedElementIds: [...changedElementIds],
+  };
+}
+
+/**
+ * 验证并应用客户端测量出的文本高度。
+ *
+ * 字体度量属于 canvas-engine；本函数只定义 AI 提案允许派生哪些布局变化，
+ * 使浏览器与服务端能使用同一组调整生成完全一致的 checkpoint。
+ */
+export function applyAiTextHeightAdjustments(
+  proposal: AiEditProposal,
+  doc: ResumeDocument,
+  adjustments: readonly AiTextHeightAdjustment[]
+): ResumeDocument {
+  if (adjustments.length === 0) return doc;
+
+  const replaceTargets = new Set(
+    proposal.commands
+      .filter((command) => command.type === 'text.replace')
+      .map((command) => command.elementId)
+  );
+  const seen = new Set<string>();
+
+  for (const adjustment of adjustments) {
+    if (seen.has(adjustment.elementId)) {
+      throw new Error(`文本高度调整重复: ${adjustment.elementId}`);
+    }
+    seen.add(adjustment.elementId);
+
+    if (!replaceTargets.has(adjustment.elementId)) {
+      throw new Error(`文本高度调整不属于 text.replace 目标: ${adjustment.elementId}`);
+    }
+    const location = findElementLocation(doc, adjustment.elementId);
+    if (!location || location.element.type !== 'text') {
+      throw new Error(`文本高度调整目标不是普通文本元素: ${adjustment.elementId}`);
+    }
+    const maxHeight = maxAiTextHeightPx(location.element, doc.pages[location.pageIndex], doc);
+    if (
+      !Number.isFinite(adjustment.height) ||
+      adjustment.height < 1 ||
+      adjustment.height > maxHeight
+    ) {
+      throw new Error(`文本高度调整超出安全范围: ${adjustment.elementId}`);
+    }
+  }
+
+  const heightById = new Map(
+    adjustments.map((adjustment) => [
+      adjustment.elementId,
+      Math.round(adjustment.height * 1000) / 1000,
+    ])
+  );
+
+  return {
+    ...doc,
+    pages: doc.pages.map((page) => ({
+      ...page,
+      elements: page.elements.map((element) => {
+        const height = heightById.get(element.id);
+        return height === undefined ? element : { ...element, height };
+      }),
+    })),
   };
 }
 

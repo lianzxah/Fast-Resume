@@ -332,6 +332,7 @@ export function useAiAssistantSession() {
         afterHash: result.afterHash,
         beforeDocument: result.beforeDocument,
         afterDocument: result.afterDocument,
+        textHeightAdjustments: result.textHeightAdjustments,
         model,
       });
     },

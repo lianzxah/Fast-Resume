@@ -102,6 +102,15 @@ export type ResumeEditCommand =
       relayout: 'none' | 'section' | 'document';
     };
 
+/**
+ * 客户端使用画布字体度量后产生的派生高度。
+ * 服务端只允许它作用于同一提案中 text.replace 的普通文本元素。
+ */
+export interface AiTextHeightAdjustment {
+  elementId: string;
+  height: number;
+}
+
 export interface AiEditProposal {
   id: string;
   title: string;
@@ -265,6 +274,21 @@ export interface AiAppliedChange {
   status?: 'applied' | 'reverted';
   revertedAt?: string;
   revertAttemptId?: string;
+}
+
+/** AI 提案应用请求；显式携带可由服务端校验并重放的派生文本布局。 */
+export interface AiApplyProposalRequest {
+  attemptId: string;
+  resumeId: string;
+  title?: string;
+  commandTypes: string[];
+  changedElementIds: string[];
+  beforeHash: string;
+  afterHash: string;
+  beforeDocument: ResumeDocument;
+  afterDocument: ResumeDocument;
+  textHeightAdjustments: AiTextHeightAdjustment[];
+  model?: AiModelRuntimeSnapshot;
 }
 
 export interface AiApplyResponse {

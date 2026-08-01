@@ -1,2 +1,14 @@
 packages:
   - 'packages/*'
+
+allowBuilds:
+  # Required native/runtime build steps. Keep this list explicit instead of
+  # enabling dependency scripts globally.
+  better-sqlite3: true
+  esbuild: true
+  # core-js only prints a funding message in postinstall; the runtime does not
+  # need that script.
+  core-js: false
+
+overrides:
+  canvas: npm:@aspect-build/empty-npm-package@1.0.0
