@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ResumeDocument, ResumeElement, TextElement } from '@resume-editor/shared';
 import { DEFAULT_PAGE_CONFIG } from '@resume-editor/shared';
-import { measureTextElementHeightAdjustments } from './text-auto-size';
+import { measureTextElementHeightAdjustments } from '../../src/core/text-auto-size';
 
 const baseText: TextElement = {
   id: 'text-1',

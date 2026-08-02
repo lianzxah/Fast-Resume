@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --dir __test__"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

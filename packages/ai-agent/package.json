@@ -9,7 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc --project tsconfig.json",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --dir __test__"
   },
   "dependencies": {
     "@resume-editor/shared": "workspace:*",

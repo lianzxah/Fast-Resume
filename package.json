@@ -12,9 +12,10 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
-    "test": "turbo run test",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
+    "lint": "pnpm check:structure && turbo run lint",
+    "test": "pnpm check:structure && turbo run test",
+    "check:structure": "node scripts/check-project-structure.mjs",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,css,md}\""
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

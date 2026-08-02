@@ -8,6 +8,8 @@ import {
   parseResumeBackup,
   serializeResumeBackup,
   validateResumeDocument,
+  resumeDataToFlowDocument,
+  createEmptyResumeData,
 } from '../src';
 
 function createDocument(): ResumeDocument {
@@ -156,5 +158,26 @@ describe('JSON 简历备份', () => {
 
     const result = validateResumeDocument(document);
     expect(result.success).toBe(false);
+  });
+
+  it('兼容没有 FlowDocument 的旧备份并验证新的逻辑内容结构', () => {
+    const legacy = createDocument();
+    expect(validateResumeDocument(legacy).success).toBe(true);
+
+    const current = createDocument();
+    current.flowDocument = resumeDataToFlowDocument(createEmptyResumeData());
+    expect(validateResumeDocument(current).success).toBe(true);
+
+    current.flowDocument.order.push('flow:missing:root:body');
+    const invalid = validateResumeDocument(current);
+    expect(invalid.success).toBe(false);
+    if (invalid.success) return;
+    expect(invalid.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: expect.stringMatching(/^flowDocument\.order\[\d+\]$/),
+        }),
+      ])
+    );
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePdfRenderOptions } from './pdf-export-options';
+import { resolvePdfRenderOptions } from '../../src/core/pdf-export-options';
 
 describe('resolvePdfRenderOptions', () => {
   it('uses the balanced JPEG preset by default', () => {

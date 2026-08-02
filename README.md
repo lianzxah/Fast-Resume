@@ -79,6 +79,14 @@ Browser
                    └─ AI Agent ── OpenAI-compatible provider
 ```
 
+### 设计文档
+
+- [简历编辑领域词汇](CONTEXT.md)
+- [项目架构与目录规范](docs/architecture/project-structure.md)
+- [Solo 简历生成模式架构](docs/architecture/solo-mode.md)
+- [Solo 模式执行计划](docs/plans/solo-mode-execution-plan.md)
+- [架构决策记录](docs/adr/)
+
 ## 快速开始
 
 ### 环境要求
@@ -124,6 +132,7 @@ pnpm dev      # 启动所有开发服务
 pnpm build    # 按依赖顺序构建所有包
 pnpm lint     # 运行 TypeScript 类型检查
 pnpm test     # 运行 Vitest 测试
+pnpm check:structure # 校验项目与测试目录规范
 pnpm format   # 使用 Prettier 格式化代码
 ```
 

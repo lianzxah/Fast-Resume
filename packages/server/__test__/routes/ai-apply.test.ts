@@ -84,10 +84,10 @@ let closeDatabase: () => void;
 
 beforeAll(async () => {
   const [{ db }, { aiRoutes }, { signToken }, { upsertAiProposal }] = await Promise.all([
-    import('../db'),
-    import('./ai'),
-    import('../services/auth'),
-    import('../services/ai-session-store'),
+    import('../../src/db'),
+    import('../../src/routes/ai'),
+    import('../../src/services/auth'),
+    import('../../src/services/ai-session-store'),
   ]);
   closeDatabase = () => db.close();
 

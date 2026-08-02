@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDrag } from 'react-dnd';
-import { useEditorStore } from '@/store';
+import { useEditorStore, useEditorStoreApi } from '@/store';
 import {
   DRAWING_CATALOG_CATEGORIES,
   createDrawingElement,
@@ -138,19 +138,20 @@ const TemplatesPanel: React.FC = () => {
 // 组件库面板 (React DnD)
 // ============================================================
 const ComponentsPanel: React.FC = () => {
+  const editorStore = useEditorStoreApi();
   const [activeCategory, setActiveCategory] = React.useState<DrawingCatalogCategoryId>('basic');
   const items = React.useMemo(() => listDrawingCatalogItems(activeCategory), [activeCategory]);
   const addElement = useEditorStore((state) => state.addElement);
 
   const insertItem = React.useCallback(
     (itemId: string) => {
-      const state = useEditorStore.getState();
+      const state = editorStore.getState();
       const currentPage = state.document.pages[state.activePageIndex];
       const offset = ((currentPage?.elements.length ?? 0) % 8) * 12;
       const element = createDrawingElement(itemId, 84 + offset, 84 + offset);
       if (element) addElement(element, state.activePageIndex);
     },
-    [addElement]
+    [addElement, editorStore]
   );
 
   return (

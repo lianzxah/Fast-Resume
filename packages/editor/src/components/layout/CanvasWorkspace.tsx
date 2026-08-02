@@ -37,7 +37,7 @@ import {
   Minus,
   ChevronDown,
 } from 'lucide-react';
-import { useEditorStore } from '@/store';
+import { useEditorStore, useEditorStoreApi } from '@/store';
 import { useDrop } from 'react-dnd';
 import { ResumeCanvas, getPageMetrics, type AlignType, type DistributeType } from '@resume-editor/canvas-engine';
 import type { EditorTool, ResumeElement, ResumeDocument, ShapeType } from '@resume-editor/shared';
@@ -86,6 +86,7 @@ interface MenuState {
 }
 
 export const CanvasWorkspace: React.FC = () => {
+  const editorStore = useEditorStoreApi();
   const store = useEditorStore();
   const {
     ui, viewport, setActiveTool, zoomIn, zoomOut, zoomToFit,
@@ -131,16 +132,16 @@ export const CanvasWorkspace: React.FC = () => {
         best = i;
       }
     });
-    if (best !== useEditorStore.getState().activePageIndex) setActivePage(best);
-  }, [setActivePage]);
+    if (best !== editorStore.getState().activePageIndex) setActivePage(best);
+  }, [editorStore, setActivePage]);
 
   const zoomAtPoint = useCallback(
     (clientX: number, clientY: number, deltaY: number) => {
       const container = scrollRef.current;
       if (!container) return;
 
-      const currentZoom = useEditorStore.getState().viewport.zoom.level;
-      const { minLevel, maxLevel } = useEditorStore.getState().viewport.zoom;
+      const currentZoom = editorStore.getState().viewport.zoom.level;
+      const { minLevel, maxLevel } = editorStore.getState().viewport.zoom;
       const nextZoom = Math.max(
         minLevel,
         Math.min(maxLevel, currentZoom * Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY))
@@ -161,7 +162,7 @@ export const CanvasWorkspace: React.FC = () => {
         detectActivePage();
       });
     },
-    [detectActivePage, setZoom]
+    [detectActivePage, editorStore, setZoom]
   );
 
   useEffect(() => {
@@ -321,7 +322,7 @@ export const CanvasWorkspace: React.FC = () => {
         const delta = e.shiftKey ? 10 : 1;
         const dx = e.key === 'ArrowLeft' ? -delta : e.key === 'ArrowRight' ? delta : 0;
         const dy = e.key === 'ArrowUp' ? -delta : e.key === 'ArrowDown' ? delta : 0;
-        const currentDoc = useEditorStore.getState().document;
+        const currentDoc = editorStore.getState().document;
         const updates: Record<string, Partial<ResumeElement>> = {};
         for (const id of ids) {
           const el = findElement(currentDoc, id);
@@ -338,7 +339,7 @@ export const CanvasWorkspace: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selection.selectedIds, removeElements, copySelection, cutSelection, paste, duplicateElement, updateElements, setActiveTool]);
+  }, [selection.selectedIds, removeElements, copySelection, cutSelection, paste, duplicateElement, updateElements, setActiveTool, editorStore]);
 
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {

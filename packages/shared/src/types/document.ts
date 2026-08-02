@@ -1,5 +1,6 @@
 import type { ResumeElement } from './elements';
 import type { ResumeData } from './resume-data';
+import type { FlowDocument } from './flow-document';
 
 // ============================================================
 // 页面与文档模型
@@ -68,6 +69,8 @@ export interface ResumeDocument {
   templateId?: string;
   /** 简历语义数据 (结构化) */
   resumeData?: ResumeData;
+  /** 流式正文源数据；缺省表示尚未迁移的旧文档。 */
+  flowDocument?: FlowDocument;
 }
 
 // ============================================================

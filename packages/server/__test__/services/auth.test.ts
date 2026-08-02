@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { signToken, verifyToken } from './auth';
+import { signToken, verifyToken } from '../../src/services/auth';
 
 describe('auth service', () => {
   it('signs and verifies a JWT payload', () => {

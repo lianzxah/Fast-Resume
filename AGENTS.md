@@ -7,11 +7,28 @@ This is a pnpm/Turbo monorepo for a canvas-based resume editor. Packages live un
 - `packages/editor`: React 18 + Vite UI, with pages, layout components, hooks, stores, API helpers, and styles in `src/`.
 - `packages/server`: Hono/Node API, database setup, middleware, routes, services, and local SQLite data in `data/`.
 - `packages/canvas-engine`: reusable canvas/editor logic and React bindings.
-- `packages/shared`: shared types and utilities; existing tests are in `packages/shared/tests`.
+- `packages/shared`: shared types, stable cross-package contracts, and pure utilities.
 - `packages/templates`: resume template definitions.
 - `packages/ai-agent`: LangChain/LangGraph agent entry point.
 
 Do not hand-edit generated outputs such as `dist/`, `.turbo/`, `node_modules/`, or local server database files.
+
+Each package keeps production code in `src/` and tests in a single package-root `__test__/`
+directory that mirrors the `src/` layout. See `docs/architecture/project-structure.md` for the
+canonical package boundaries and dependency direction.
+
+## Architecture Boundaries
+
+Dependencies flow from product packages toward stable foundations: `editor` may depend on
+`canvas-engine`, `templates`, and `shared`; `server` may depend on `ai-agent`, `templates`, and
+`shared`; `canvas-engine`, `templates`, and `ai-agent` may depend on `shared`. `shared` must not
+depend on another workspace package. Import another package only through its public package entry,
+never through its `src/` internals.
+
+Keep HTTP handling in server routes and business or persistence logic in services. Keep page
+composition in editor pages, reusable UI in components, state in stores, and browser/API adapters in
+lib or focused hooks. Reusable canvas and layout behavior belongs in `canvas-engine`; cross-runtime
+contracts belong in `shared`.
 
 ## Build, Test, and Development Commands
 
@@ -22,6 +39,7 @@ Use pnpm with Node 20 or newer.
 - `pnpm build`: build packages in dependency order.
 - `pnpm lint`: run TypeScript `--noEmit` checks across packages.
 - `pnpm test`: run Turbo test tasks.
+- `pnpm check:structure`: verify that test artifacts follow the package directory convention.
 - `pnpm format`: format TypeScript, JavaScript, JSON, CSS, and Markdown with Prettier.
 
 For package-specific work, use filters such as `pnpm --filter @resume-editor/editor dev` or `pnpm --filter @resume-editor/server test`.
@@ -34,7 +52,12 @@ Prettier is configured for 2 spaces, semicolons, single quotes, trailing commas 
 
 ## Testing Guidelines
 
-Vitest is the test runner. The root `vitest.workspace.ts` includes `shared`, `canvas-engine`, `templates`, and `server`. Name tests `*.test.ts` or `*.test.tsx`, and place package tests beside the code they exercise, commonly in `tests/`. Add focused tests for shared utilities, canvas behavior, server services, and template data.
+Vitest is the test runner. The root `vitest.workspace.ts` includes every package. Name tests
+`*.test.ts` or `*.test.tsx` and place them only in `<package>/__test__/`, mirroring the source path
+(for example, `src/services/auth.ts` is tested by `__test__/services/auth.test.ts`). Keep snapshots
+in a sibling `__snapshots__/` below `__test__/`. Do not use `tests/`, `__tests__/`, `*.spec.*`, or
+tests colocated in `src/`. Add focused tests for shared utilities, canvas behavior, server services,
+editor behavior, AI orchestration, and template data.
 
 ## Commit & Pull Request Guidelines
 

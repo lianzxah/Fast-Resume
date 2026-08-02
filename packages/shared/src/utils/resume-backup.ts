@@ -553,6 +553,126 @@ function validateObjectArray(
   });
 }
 
+function validateFlowDocument(value: unknown, path: string, context: ValidationContext): void {
+  if (value === undefined) return;
+  if (!isRecord(value)) {
+    addIssue(context, path, '必须是流式文档对象');
+    return;
+  }
+  validateNumber(value.schemaVersion, `${path}.schemaVersion`, context, {
+    min: 1,
+    max: 1,
+    integer: true,
+  });
+
+  const blockIds = new Set<string>();
+  if (!Array.isArray(value.blocks)) {
+    addIssue(context, `${path}.blocks`, '必须是逻辑内容块数组');
+  } else {
+    value.blocks.slice(0, MAX_COLLECTION_ITEMS).forEach((candidate, index) => {
+      const blockPath = `${path}.blocks[${index}]`;
+      if (!isRecord(candidate)) {
+        addIssue(context, blockPath, '必须是逻辑内容块对象');
+        return;
+      }
+      validateString(candidate.id, `${blockPath}.id`, context, { nonEmpty: true });
+      if (typeof candidate.id === 'string') {
+        if (blockIds.has(candidate.id)) addIssue(context, `${blockPath}.id`, '逻辑块 ID 重复');
+        blockIds.add(candidate.id);
+      }
+      validateSemanticRef(candidate.semanticRef, `${blockPath}.semanticRef`, context);
+      validateString(candidate.content, `${blockPath}.content`, context);
+      validateSegments(candidate.segments, `${blockPath}.segments`, context);
+
+      if (!isRecord(candidate.style)) {
+        addIssue(context, `${blockPath}.style`, '必须是逻辑文本样式对象');
+      } else {
+        validateEnum(
+          candidate.style.role,
+          new Set(['name', 'headline', 'sectionTitle', 'itemTitle', 'body', 'metadata']),
+          `${blockPath}.style.role`,
+          context
+        );
+        validateEnum(
+          candidate.style.emphasis,
+          new Set(['normal', 'strong', 'muted']),
+          `${blockPath}.style.emphasis`,
+          context,
+          true
+        );
+      }
+
+      if (!isRecord(candidate.layout)) {
+        addIssue(context, `${blockPath}.layout`, '必须是逻辑布局对象');
+      } else {
+        validateEnum(
+          candidate.layout.role,
+          new Set(['flow', 'bounded', 'absolute']),
+          `${blockPath}.layout.role`,
+          context
+        );
+        validateString(candidate.layout.regionId, `${blockPath}.layout.regionId`, context, {
+          nonEmpty: true,
+        });
+        validateString(candidate.layout.groupId, `${blockPath}.layout.groupId`, context, {
+          optional: true,
+        });
+        validateBoolean(
+          candidate.layout.keepTogether,
+          `${blockPath}.layout.keepTogether`,
+          context,
+          true
+        );
+        validateEnum(
+          candidate.layout.breakPolicy,
+          new Set(['between-lines', 'between-items', 'avoid']),
+          `${blockPath}.layout.breakPolicy`,
+          context,
+          true
+        );
+      }
+
+      if (candidate.source !== undefined) {
+        if (!isRecord(candidate.source)) {
+          addIssue(context, `${blockPath}.source`, '必须是逻辑内容来源对象');
+        } else {
+          validateEnum(
+            candidate.source.kind,
+            new Set(['resumeData', 'unclassified']),
+            `${blockPath}.source.kind`,
+            context
+          );
+          validateEnum(
+            candidate.source.sync,
+            new Set(['scalar', 'lines', 'readonly']),
+            `${blockPath}.source.sync`,
+            context
+          );
+        }
+      }
+    });
+  }
+
+  if (!Array.isArray(value.order)) {
+    addIssue(context, `${path}.order`, '必须是逻辑块顺序数组');
+  } else {
+    const orderedIds = new Set<string>();
+    value.order.slice(0, MAX_COLLECTION_ITEMS).forEach((id, index) => {
+      const orderPath = `${path}.order[${index}]`;
+      validateString(id, orderPath, context, { nonEmpty: true });
+      if (typeof id !== 'string') return;
+      if (!blockIds.has(id)) addIssue(context, orderPath, '引用了不存在的逻辑块');
+      if (orderedIds.has(id)) addIssue(context, orderPath, '逻辑块顺序重复');
+      orderedIds.add(id);
+    });
+    blockIds.forEach((id) => {
+      if (!orderedIds.has(id)) addIssue(context, `${path}.order`, `缺少逻辑块: ${id}`);
+    });
+  }
+
+  validateResumeData(value.semanticData, `${path}.semanticData`, context);
+}
+
 export function validateResumeDocument(value: unknown): ResumeDocumentValidationResult {
   const context: ValidationContext = {
     issues: [],
@@ -571,6 +691,7 @@ export function validateResumeDocument(value: unknown): ResumeDocumentValidation
   validatePageConfig(value.pageConfig, 'pageConfig', context);
   validateString(value.templateId, 'templateId', context, { optional: true });
   validateResumeData(value.resumeData, 'resumeData', context);
+  validateFlowDocument(value.flowDocument, 'flowDocument', context);
 
   if (!Array.isArray(value.pages)) {
     addIssue(context, 'pages', '必须是页面数组');

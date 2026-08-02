@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getTemplateById, getTemplatesByCategory, templates } from './index';
+import { getTemplateById, getTemplatesByCategory, templates } from '../src';
 
 describe('templates', () => {
   it('exports valid template definitions', () => {

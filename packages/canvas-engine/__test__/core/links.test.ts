@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ResumePage, TextElement } from '@resume-editor/shared';
 import { DEFAULT_PAGE_CONFIG } from '@resume-editor/shared';
-import { collectPdfLinkAnnotations } from './links';
+import { collectPdfLinkAnnotations } from '../../src/core/links';
 
 const linkedText: TextElement = {
   id: 'text-1',

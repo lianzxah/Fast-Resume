@@ -25,3 +25,6 @@ export {
 // 撤销/重做历史管理
 export { HistoryManager } from './history-manager';
 export type { HistoryEntry, HistoryManagerOptions } from './history-manager';
+
+// 流式简历布局引擎
+export * from './layout';

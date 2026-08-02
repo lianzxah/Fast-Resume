@@ -5,7 +5,7 @@ import {
   type AiEditorContext,
   type ResumeDocument,
 } from '@resume-editor/shared';
-import { createOpenAICompatibleProvider, ResumeAssistant, type LlmProvider } from './index';
+import { createOpenAICompatibleProvider, ResumeAssistant, type LlmProvider } from '../src';
 
 class FakeLlmProvider implements LlmProvider {
   calls = 0;

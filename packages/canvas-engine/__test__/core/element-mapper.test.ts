@@ -5,7 +5,7 @@ import {
   normalizeCornerRadius,
   toImageAttrs,
   toRectAttrs,
-} from './element-mapper';
+} from '../../src/core/element-mapper';
 
 const baseShape: ShapeElement = {
   id: 'shape-1',
