@@ -81,11 +81,7 @@ Browser
 
 ### 设计文档
 
-- [简历编辑领域词汇](CONTEXT.md)
 - [项目架构与目录规范](docs/architecture/project-structure.md)
-- [Solo 简历生成模式架构](docs/architecture/solo-mode.md)
-- [Solo 模式执行计划](docs/plans/solo-mode-execution-plan.md)
-- [架构决策记录](docs/adr/)
 
 ## 快速开始
 

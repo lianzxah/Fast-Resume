@@ -5,7 +5,7 @@ import {
   type ResumeTemplate,
   type TextElement,
 } from '@resume-editor/shared';
-import { createClassicEditorSession } from '../../src/store/editor-session';
+import { useEditorStore } from '../../src/store/editor-store';
 
 vi.mock('@resume-editor/canvas-engine', () => ({
   alignBoxes: vi.fn(() => []),
@@ -57,7 +57,8 @@ function document(): ResumeDocument {
 
 describe('classic editor store behavior', () => {
   it('preserves selection, element update, undo and redo behavior', () => {
-    const session = createClassicEditorSession({ initialDocument: document() });
+    const session = useEditorStore;
+    session.getState().setDocument(document());
     session.getState().selectElement('text-1');
     session.getState().updateElement('text-1', { left: 120, content: '修改后内容' });
 
@@ -82,7 +83,8 @@ describe('classic editor store behavior', () => {
   });
 
   it('resets transient history when applying a template', () => {
-    const session = createClassicEditorSession({ initialDocument: document() });
+    const session = useEditorStore;
+    session.getState().setDocument(document());
     session.getState().updateElement('text-1', { left: 120 });
     const template: ResumeTemplate = {
       id: 'template-test',
@@ -111,7 +113,8 @@ describe('classic editor store behavior', () => {
   });
 
   it('records AI transforms as one revision and one auditable history item', () => {
-    const session = createClassicEditorSession({ initialDocument: document() });
+    const session = useEditorStore;
+    session.getState().setDocument(document());
 
     session.getState().applyDocumentTransform(
       (current) => ({

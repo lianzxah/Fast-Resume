@@ -1,4 +1,4 @@
-import type { EditorStoreApi } from '@/store';
+import { useEditorStore } from '@/store';
 import { measureTextElementHeightAdjustments } from '@resume-editor/canvas-engine';
 import {
   applyAiEditProposal as applySharedAiEditProposal,
@@ -38,8 +38,8 @@ function createAiSafeDocument(document: ResumeDocument): ResumeDocument {
   };
 }
 
-export function collectEditorContext(storeApi: EditorStoreApi): AiEditorContext {
-  const store = storeApi.getState();
+export function collectEditorContext(): AiEditorContext {
+  const store = useEditorStore.getState();
   const safeDocument = createAiSafeDocument(store.document);
   const selected = new Set(store.selection.selectedIds);
   const textIndex = buildAiTextIndex(safeDocument);
@@ -68,11 +68,8 @@ export function collectEditorContext(storeApi: EditorStoreApi): AiEditorContext 
   };
 }
 
-export function canAutoApplyProposal(
-  storeApi: EditorStoreApi,
-  proposal: AiEditProposal
-): { ok: boolean; message?: string } {
-  const store = storeApi.getState();
+export function canAutoApplyProposal(proposal: AiEditProposal): { ok: boolean; message?: string } {
+  const store = useEditorStore.getState();
   const validation = canAutoApplyAiProposal(proposal, store.document);
   return {
     ok: validation.ok,
@@ -90,11 +87,8 @@ export interface PreparedAiEditProposal {
   textHeightAdjustments: AiTextHeightAdjustment[];
 }
 
-export function prepareAiEditProposal(
-  storeApi: EditorStoreApi,
-  proposal: AiEditProposal
-): PreparedAiEditProposal {
-  const store = storeApi.getState();
+export function prepareAiEditProposal(proposal: AiEditProposal): PreparedAiEditProposal {
+  const store = useEditorStore.getState();
   const beforeDocument = JSON.parse(JSON.stringify(store.document)) as ResumeDocument;
   const beforeHash = createDocumentFingerprint(beforeDocument);
   const result = applySharedAiEditProposal(proposal, beforeDocument);
@@ -124,11 +118,10 @@ export function prepareAiEditProposal(
 }
 
 export function commitPreparedAiEditProposal(
-  storeApi: EditorStoreApi,
   proposal: AiEditProposal,
   prepared: PreparedAiEditProposal
 ): void {
-  const store = storeApi.getState();
+  const store = useEditorStore.getState();
   if (createDocumentFingerprint(store.document) !== prepared.beforeHash) {
     throw new Error('等待 AI 提案持久化期间简历已变化，已取消应用，请重新生成');
   }
@@ -139,17 +132,14 @@ export function commitPreparedAiEditProposal(
   });
 
   if (prepared.changedElementIds.length > 0) {
-    storeApi.getState().selectMultiple(prepared.changedElementIds);
+    useEditorStore.getState().selectMultiple(prepared.changedElementIds);
     const first = findElementLocation(prepared.afterDocument, prepared.changedElementIds[0]);
-    if (first) storeApi.getState().setActivePage(first.pageIndex);
+    if (first) useEditorStore.getState().setActivePage(first.pageIndex);
   }
 }
 
-export function canRevertAiChange(
-  storeApi: EditorStoreApi,
-  change: AiAppliedChange
-): { ok: boolean; message?: string } {
-  const preview = previewAiChangeRevert(change, storeApi.getState().document);
+export function canRevertAiChange(change: AiAppliedChange): { ok: boolean; message?: string } {
+  const preview = previewAiChangeRevert(change, useEditorStore.getState().document);
   return { ok: preview.ok, message: preview.message };
 }
 
@@ -159,11 +149,8 @@ export interface PreparedAiChangeRevert {
   document: ResumeDocument;
 }
 
-export function prepareAiChangeRevert(
-  storeApi: EditorStoreApi,
-  change: AiAppliedChange
-): PreparedAiChangeRevert {
-  const store = storeApi.getState();
+export function prepareAiChangeRevert(change: AiAppliedChange): PreparedAiChangeRevert {
+  const store = useEditorStore.getState();
   const result = revertSharedAiAppliedChange(change, store.document);
   return {
     changedElementIds: result.changedElementIds,
@@ -173,11 +160,10 @@ export function prepareAiChangeRevert(
 }
 
 export function commitPreparedAiChangeRevert(
-  storeApi: EditorStoreApi,
   change: AiAppliedChange,
   prepared: PreparedAiChangeRevert
 ): void {
-  const store = storeApi.getState();
+  const store = useEditorStore.getState();
   if (createDocumentFingerprint(store.document) !== prepared.currentHash) {
     throw new Error('等待 AI 回退持久化期间简历已变化，已取消回退');
   }
@@ -187,8 +173,8 @@ export function commitPreparedAiChangeRevert(
   });
 }
 
-export function executeViewCommand(storeApi: EditorStoreApi, command: ViewCommand): void {
-  const store = storeApi.getState();
+export function executeViewCommand(command: ViewCommand): void {
+  const store = useEditorStore.getState();
 
   switch (command.type) {
     case 'view.setActivePage':

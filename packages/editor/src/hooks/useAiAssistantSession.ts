@@ -18,7 +18,7 @@ import {
   prepareAiChangeRevert,
   prepareAiEditProposal,
 } from '@/lib/editor-ai-bridge';
-import { useEditorStore, useEditorStoreApi } from '@/store';
+import { useEditorStore } from '@/store';
 
 export interface AiChatMessage {
   id: string;
@@ -80,7 +80,6 @@ function replaceAppliedChange(
 }
 
 export function useAiAssistantSession() {
-  const editorStore = useEditorStoreApi();
   const resumeId = useEditorStore((state) => state.resumeId);
   const resumeIdRef = useRef(resumeId);
   resumeIdRef.current = resumeId;
@@ -265,8 +264,7 @@ export function useAiAssistantSession() {
         );
         setAppliedChanges(
           changeList.map((change) =>
-            change.status === 'reverted' &&
-            canRevertAiChange(editorStore, { ...change, status: 'applied' }).ok
+            change.status === 'reverted' && canRevertAiChange({ ...change, status: 'applied' }).ok
               ? { ...change, status: 'applied' }
               : change
           )
@@ -274,7 +272,7 @@ export function useAiAssistantSession() {
         setPendingProposals(
           proposalList.map((item) => ({
             proposal: item.proposal,
-            blockedReason: canAutoApplyProposal(editorStore, item.proposal).message,
+            blockedReason: canAutoApplyProposal(item.proposal).message,
           }))
         );
       })
@@ -284,7 +282,7 @@ export function useAiAssistantSession() {
     return () => {
       cancelled = true;
     };
-  }, [activeSessionId, editorStore]);
+  }, [activeSessionId]);
 
   const startNewSession = useCallback(() => {
     setActiveSessionId(null);
@@ -354,7 +352,7 @@ export function useAiAssistantSession() {
       applyingProposalIdsRef.current.add(proposal.id);
       setApplyingProposalIds((current) => new Set(current).add(proposal.id));
       try {
-        const result = prepareAiEditProposal(editorStore, proposal);
+        const result = prepareAiEditProposal(proposal);
         const attemptId = crypto.randomUUID();
         const response = await persistAppliedProposal(
           sessionId,
@@ -364,7 +362,7 @@ export function useAiAssistantSession() {
           attemptId
         );
         try {
-          commitPreparedAiEditProposal(editorStore, proposal, result);
+          commitPreparedAiEditProposal(proposal, result);
         } catch (commitError) {
           if (response.change.id && response.change.attemptId === attemptId) {
             await aiApi
@@ -398,7 +396,7 @@ export function useAiAssistantSession() {
         });
       }
     },
-    [activeSessionId, editorStore, persistAppliedProposal]
+    [activeSessionId, persistAppliedProposal, resumeId]
   );
 
   const declineProposal = useCallback(
@@ -414,7 +412,7 @@ export function useAiAssistantSession() {
     async (change: AiAppliedChange) => {
       const changeKey = change.id ?? change.proposalId;
       if (revertingChangeIdsRef.current.has(changeKey)) return;
-      const validation = canRevertAiChange(editorStore, change);
+      const validation = canRevertAiChange(change);
       if (!validation.ok) {
         const message = validation.message || '该 AI 修改当前不可回退';
         setError(message);
@@ -424,12 +422,12 @@ export function useAiAssistantSession() {
       revertingChangeIdsRef.current.add(changeKey);
       setRevertingChangeIds((current) => new Set(current).add(changeKey));
       try {
-        const prepared = prepareAiChangeRevert(editorStore, change);
+        const prepared = prepareAiChangeRevert(change);
         if (!activeSessionId || !change.id) throw new Error('AI 回退记录不完整');
         const attemptId = crypto.randomUUID();
         const response = await aiApi.revertChange(activeSessionId, change.id, attemptId);
         try {
-          commitPreparedAiChangeRevert(editorStore, change, prepared);
+          commitPreparedAiChangeRevert(change, prepared);
         } catch (commitError) {
           if (response.revertAttemptId === attemptId) {
             await aiApi.restoreChange(activeSessionId, change.id, attemptId).catch(() => undefined);
@@ -460,7 +458,7 @@ export function useAiAssistantSession() {
         });
       }
     },
-    [activeSessionId, editorStore]
+    [activeSessionId]
   );
 
   const sendMessage = useCallback(
@@ -487,7 +485,7 @@ export function useAiAssistantSession() {
         if (!sessionId || !isCurrentRequest()) return;
         sendingSessionRef.current = sessionId;
         setMessages((current) => [...current, createMessage('user', trimmed)]);
-        const context = collectEditorContext(editorStore);
+        const context = collectEditorContext();
         if (!context.resumeId) throw new Error('当前简历尚未关联保存记录');
 
         const response = await aiApi.streamMessage(
@@ -534,7 +532,7 @@ export function useAiAssistantSession() {
                 appendMessageDelta(current, assistantMessageId, event.question)
               );
             }
-            if (event.type === 'view.command') executeViewCommand(editorStore, event.command);
+            if (event.type === 'view.command') executeViewCommand(event.command);
             if (event.type === 'edit.proposal') proposals.push(event.proposal);
             if (event.type === 'error') {
               streamError = event.message;
@@ -547,7 +545,7 @@ export function useAiAssistantSession() {
         if (!isCurrentRequest()) return;
 
         for (const proposal of proposals) {
-          const autoCheck = canAutoApplyProposal(editorStore, proposal);
+          const autoCheck = canAutoApplyProposal(proposal);
           if (autoCheck.ok) {
             await applyProposal(proposal, response.model, sessionId);
           } else {
@@ -593,14 +591,7 @@ export function useAiAssistantSession() {
         }
       }
     },
-    [
-      activeModelProfileId,
-      applyProposal,
-      editorStore,
-      ensureSession,
-      flushThinking,
-      queueThinkingDelta,
-    ]
+    [activeModelProfileId, applyProposal, ensureSession, flushThinking, queueThinkingDelta]
   );
 
   const cancelSend = useCallback(() => abortRef.current?.abort(), []);

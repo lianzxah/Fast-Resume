@@ -64,11 +64,11 @@ server ─────────► ai-agent ───────► shared
 ```text
 packages/editor/
 ├── src/
-│   ├── hooks/formal-resume-persistence.ts
-│   └── store/editor-session.tsx
+│   ├── lib/editor-ai-bridge.ts
+│   └── store/editor-store.ts
 └── __test__/
-    ├── hooks/formal-resume-persistence.test.ts
-    └── store/editor-session.test.ts
+    ├── lib/editor-ai-bridge.test.ts
+    └── store/editor-store-characterization.test.ts
 ```
 
 - 测试文件统一命名为 `*.test.ts` 或 `*.test.tsx`；不使用 `tests/`、`__tests__/`、`*.spec.*`，也不把测试与生产代码共置在 `src/`。

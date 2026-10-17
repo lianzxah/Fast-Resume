@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_PAGE_CONFIG,
@@ -5,7 +6,7 @@ import {
   type AiEditProposal,
   type ResumeDocument,
 } from '@resume-editor/shared';
-import { createClassicEditorSession } from '@/store/editor-session';
+import { useEditorStore } from '@/store';
 import {
   canRevertAiChange,
   commitPreparedAiChangeRevert,
@@ -88,35 +89,34 @@ function proposal(): AiEditProposal {
 }
 
 describe('editor AI bridge', () => {
-  it('applies one prepared proposal to the supplied session only', () => {
-    const target = createClassicEditorSession({ initialDocument: document() });
-    const other = createClassicEditorSession({ initialDocument: document() });
-    const prepared = prepareAiEditProposal(target, proposal());
+  it('applies one prepared proposal to the classic editor', () => {
+    const target = useEditorStore;
+    target.getState().setDocument(document());
+    const prepared = prepareAiEditProposal(proposal());
 
-    commitPreparedAiEditProposal(target, proposal(), prepared);
+    commitPreparedAiEditProposal(proposal(), prepared);
 
     expect(target.getState().document.pages[0].elements[0]).toMatchObject({
       content: '主导前端开发',
     });
     expect(target.getState().selection.selectedIds).toEqual(['text-1']);
     expect(target.getState().documentRevision).toBe(1);
-    expect(other.getState().document.pages[0].elements[0]).toMatchObject({
-      content: '负责前端开发',
-    });
   });
 
   it('rejects a prepared proposal when the document changed before commit', () => {
-    const session = createClassicEditorSession({ initialDocument: document() });
-    const prepared = prepareAiEditProposal(session, proposal());
+    const session = useEditorStore;
+    session.getState().setDocument(document());
+    const prepared = prepareAiEditProposal(proposal());
     session.getState().updateDocumentTitle('用户刚刚修改');
 
-    expect(() => commitPreparedAiEditProposal(session, proposal(), prepared)).toThrow('简历已变化');
+    expect(() => commitPreparedAiEditProposal(proposal(), prepared)).toThrow('简历已变化');
   });
 
-  it('reverts the AI target through the same supplied session', () => {
-    const session = createClassicEditorSession({ initialDocument: document() });
-    const prepared = prepareAiEditProposal(session, proposal());
-    commitPreparedAiEditProposal(session, proposal(), prepared);
+  it('reverts the AI target in the classic editor', () => {
+    const session = useEditorStore;
+    session.getState().setDocument(document());
+    const prepared = prepareAiEditProposal(proposal());
+    commitPreparedAiEditProposal(proposal(), prepared);
     const change: AiAppliedChange = {
       proposalId: 'proposal-1',
       resumeId: 'resume-1',
@@ -128,9 +128,9 @@ describe('editor AI bridge', () => {
       appliedAt: '2026-08-02T01:00:00.000Z',
     };
 
-    expect(canRevertAiChange(session, change).ok).toBe(true);
-    const revert = prepareAiChangeRevert(session, change);
-    commitPreparedAiChangeRevert(session, change, revert);
+    expect(canRevertAiChange(change).ok).toBe(true);
+    const revert = prepareAiChangeRevert(change);
+    commitPreparedAiChangeRevert(change, revert);
 
     expect(session.getState().document.pages[0].elements[0]).toMatchObject({
       content: '负责前端开发',

@@ -17,7 +17,7 @@ import {
   FolderOpen,
   FileJson,
 } from 'lucide-react';
-import { useEditorStoreApi } from '@/store';
+import { useEditorStore } from '@/store';
 import type { ParsedResumeBackup, ResumeData } from '@resume-editor/shared';
 import {
   MAX_RESUME_BACKUP_FILE_SIZE,
@@ -35,7 +35,6 @@ interface ImportDialogProps {
 type ImportStep = 'upload' | 'parsing' | 'preview' | 'backup-preview' | 'error';
 
 export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => {
-  const editorStore = useEditorStoreApi();
   const [step, setStep] = useState<ImportStep>('upload');
   const [parsedData, setParsedData] = useState<ResumeData | null>(null);
   const [parsedBackup, setParsedBackup] = useState<ParsedResumeBackup | null>(null);
@@ -173,7 +172,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
     // 将 ResumeData 转换为画布渲染层元素（ResumePage[]）
     const pages = resumeDataToPages(parsedData);
 
-    const store = editorStore.getState();
+    const store = useEditorStore.getState();
     const doc = {
       ...store.document,
       resumeData: parsedData,
@@ -186,13 +185,13 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => 
     // 标记为待保存，触发自动保存将导入结果持久化
     store.markDirty();
     handleClose();
-  }, [editorStore, parsedData, handleClose]);
+  }, [parsedData, handleClose]);
 
   const handleConfirmBackupRestore = useCallback(() => {
     if (!parsedBackup) return;
-    editorStore.getState().restoreDocument(parsedBackup.document);
+    useEditorStore.getState().restoreDocument(parsedBackup.document);
     handleClose();
-  }, [editorStore, parsedBackup, handleClose]);
+  }, [parsedBackup, handleClose]);
 
   if (!open) return null;
 

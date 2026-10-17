@@ -1,4 +1,4 @@
-import { createStore, type StoreApi } from 'zustand/vanilla';
+import { create } from 'zustand';
 import type {
   EditorState,
   EditorUIState,
@@ -22,7 +22,7 @@ import {
 // 编辑器状态 Store
 // ============================================================
 
-export interface EditorActions {
+interface EditorActions {
   // 文档操作
   setDocument: (doc: ResumeDocument) => void;
   restoreDocument: (doc: ResumeDocument) => void;
@@ -104,7 +104,7 @@ const MAX_HISTORY = 50;
 
 const cloneDoc = (doc: ResumeDocument): ResumeDocument => JSON.parse(JSON.stringify(doc));
 
-export interface ExtraState {
+interface ExtraState {
   past: ResumeDocument[];
   future: ResumeDocument[];
   /** 剪贴板 (元素快照) */
@@ -121,13 +121,7 @@ export interface ExtraState {
   documentRevision: number;
 }
 
-export type EditorStore = EditorState & EditorActions & ExtraState;
-export type EditorStoreApi = StoreApi<EditorStore>;
-
-export interface CreateEditorStoreOptions {
-  initialDocument?: ResumeDocument;
-  resumeId?: string | null;
-}
+type EditorStore = EditorState & EditorActions & ExtraState;
 
 /** 生成入栈补丁: 记录当前文档到 past, 清空 future */
 function pushPast(state: EditorStore): Pick<ExtraState, 'past' | 'future'> {
@@ -224,11 +218,9 @@ const defaultUIState: EditorUIState = {
   snapToGrid: true,
 };
 
-export const createEditorStore = (
-  options: CreateEditorStoreOptions = {}
-): EditorStoreApi => createStore<EditorStore>((set, get) => ({
+export const useEditorStore = create<EditorStore>((set, get) => ({
   // 初始状态
-  document: options.initialDocument ? cloneDoc(options.initialDocument) : createDefaultDocument(),
+  document: createDefaultDocument(),
   activePageIndex: 0,
   selection: {
     selectedIds: [],
@@ -239,14 +231,14 @@ export const createEditorStore = (
     scrollY: 0,
     zoom: { level: 1, minLevel: 0.25, maxLevel: 3 },
   },
-  ui: { ...defaultUIState },
+  ui: defaultUIState,
   history: [],
   historyIndex: -1,
   isDirty: false,
   past: [],
   future: [],
   clipboard: [],
-  resumeId: options.resumeId ?? null,
+  resumeId: null,
   isSaving: false,
   saveError: null,
   lastSavedAt: null,
